@@ -2,11 +2,13 @@ const express = require('express');
 const axios = require('axios');
 const Alpaca = require('@alpacahq/alpaca-trade-api');
 const { alertClient, notifyLastTrade } = require('../../services/notification.service');
+const { registerGainersPollingId } = require('../../utils/pollingHelper'); 
 
 const API_KEY = 'AKUZGQ4LP0JFTH8MLI8G';
 const API_SECRET = 'SxyK42v8ziuSjtXiku9AEjKOLBT95C8xeu5GyzSb';
 let lastPricesFromBars = {};
 const lastTradesForSymbol = {}
+let currentTickersBeingWatched = [];
 
 let watchlistId = '';
 let dataStreamConnectionsActive = 0;
@@ -40,12 +42,26 @@ class DataStream {
       });
 
       axios.get('https://securitiesapi.webullfintech.com/api/securities/market/v5/card/stockActivityPc.advanced/list?regionId=6&userRegionId=1&hasNum=0&pageSize=100').then(response => {
-            const {data} = response;
-            const tickers = data.filter(d => d.volume > 100000 && d.symbol.length < 5);
-            socket.subscribeForBars(tickers.map(t => t.symbol));
-            socket.subscribeForTrades(tickers.map(t => t.symbol));
-            console.log(tickers.map(t => t.symbol));
-        });
+          const {data} = response;
+          const tickers = data.filter(d => d.volume > 100000 && d.symbol.length < 5);
+          currentTickersBeingWatched = tickers.map(t => t.symbol);
+          socket.subscribeForBars(currentTickersBeingWatched);
+          socket.subscribeForTrades(currentTickersBeingWatched);
+      });
+
+        const _intervalId = setInterval(() => {
+          axios.get('https://securitiesapi.webullfintech.com/api/securities/market/v5/card/stockActivityPc.advanced/list?regionId=6&userRegionId=1&hasNum=0&pageSize=100').then(response => {
+              const {data} = response;
+              const tickers = data.filter(d => d.volume > 100000 && d.symbol.length < 5).map(t => t.symbol);
+              const additionalTickers = tickers.filter(t => currentTickersBeingWatched.indexOf(t) < 0);
+              socket.subscribeForBars(additionalTickers);
+              socket.subscribeForTrades(additionalTickers);
+              currentTickersBeingWatched = [...currentTickersBeingWatched, ...additionalTickers];
+
+          });
+       }, 30000);
+       registerGainersPollingId(_intervalId);
+
     });
 
     socket.onError((err) => {
@@ -60,7 +76,6 @@ class DataStream {
       } else {
         lastTradesForSymbol[trade.Symbol] = trade;
       }
-      
       // notifyLastTrade(lastTradesForSymbol);
     });
 
@@ -80,8 +95,6 @@ class DataStream {
       if (bar.HighPrice - bar.LowPrice >= delta && bar.OpenPrice < bar.ClosePrice) {
         alertClient(bar.Symbol, true);
       }
-
-      console.log(lastPricesFromBars);
     });
 
     socket.onStateChange((state) => {

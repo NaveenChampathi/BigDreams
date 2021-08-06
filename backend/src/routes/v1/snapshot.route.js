@@ -36,16 +36,6 @@ const router = express.Router();
                 const {data} = response;
                 const tickers = data.filter(d => d.volume > 100000 && d.symbol.length < 5);
                 notifyGainers(tickers);
-                // startProcessForFundamentalDataFetch(tickers.map(t => t.symbol));
-                
-                // getFundamentalsForTickers(tickers.map(t => t.symbol)).then(fData => {
-                //     tickers = tickers.map(t => {
-                //         return {
-                //             ...t,
-                //             ...fData[t.symbol]
-                //         }
-                //     })
-                // })
             });
          }, 30000);
          registerGainersPollingId(_intervalId);
