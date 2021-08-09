@@ -6,40 +6,40 @@ const registerSocket = (socket) => {
 }
 
 const alertClient = (symbol, up) => {
-    if(_socket) {
-        _socket.emit("Alert", {swipe: up, message: `${symbol} ${up ? 'swipe' : 'flush'}`});
+    if (_socket) {
+        _socket.emit("Alert", { swipe: up, message: `${symbol} ${up ? 'swipe' : 'flush'}` });
     }
 }
 
-const alertClientHOD = (symbol) => {
-    if(_socket) {
-        _socket.emit("AlertHOD", {symbol});
+const alertClientHOD = ({ symbol, lastNotified, now }) => {
+    if (_socket) {
+        _socket.emit("AlertHOD", { symbol, lastNotified, now });
     }
 }
 
 const notifyLastTrade = (data) => {
-    if(_socket) {
+    if (_socket) {
         _socket.emit("LastTrade", data);
     }
 }
 
 const notifyTickerFundamentals = (data) => {
-    if(_socket) {
+    if (_socket) {
         _socket.emit("TickerFundamentals", data);
     }
 }
 
 const notifyGainers = (data) => {
-    if(_socket) {
+    if (_socket) {
         _socket.emit("gainers", data);
     }
 }
 
 const notifyHalts = (data) => {
-    if(data.length !== _halts.length) {
+    if (data.length !== _halts.length) {
         _halts = data;
     }
-    if(_socket) {
+    if (_socket) {
         _socket.emit("Halts", _halts);
     }
 }

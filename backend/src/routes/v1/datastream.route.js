@@ -2,7 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const Alpaca = require('@alpacahq/alpaca-trade-api');
 const { alertClient, alertClientHOD, notifyLastTrade } = require('../../services/notification.service');
-const { registerGainersPollingId } = require('../../utils/pollingHelper'); 
+const { registerGainersPollingId } = require('../../utils/pollingHelper');
 
 // const API_KEY = 'AKUZGQ4LP0JFTH8MLI8G';
 // const API_SECRET = 'SxyK42v8ziuSjtXiku9AEjKOLBT95C8xeu5GyzSb';
@@ -13,7 +13,7 @@ let currentTickersBeingWatched = [];
 
 let watchlistId = '';
 let dataStreamConnectionsActive = 0;
-let dataStreamConnectionPromiseResolve = () => {};
+let dataStreamConnectionPromiseResolve = () => { };
 
 class DataStream {
   constructor({ apiKey, secretKey, feed }) {
@@ -56,29 +56,29 @@ class DataStream {
       });
 
       axios.get('https://securitiesapi.webullfintech.com/api/securities/market/v5/card/stockActivityPc.advanced/list?regionId=6&userRegionId=1&hasNum=0&pageSize=100').then(response => {
-          const {data} = response;
-          const tickers = data.filter(d => d.volume > 100000 && d.symbol.length < 5);
-          currentTickersBeingWatched = tickers.map(t => t.symbol);
-          socket.subscribeForBars(currentTickersBeingWatched);
-          socket.subscribeForTrades(currentTickersBeingWatched);
-          getSnapshots(currentTickersBeingWatched);
+        const { data } = response;
+        const tickers = data.filter(d => d.volume > 100000 && d.symbol.length < 5);
+        currentTickersBeingWatched = tickers.map(t => t.symbol);
+        socket.subscribeForBars(currentTickersBeingWatched);
+        socket.subscribeForTrades(currentTickersBeingWatched);
+        getSnapshots(currentTickersBeingWatched);
       });
 
-        const _intervalId = setInterval(() => {
-          axios.get('https://securitiesapi.webullfintech.com/api/securities/market/v5/card/stockActivityPc.advanced/list?regionId=6&userRegionId=1&hasNum=0&pageSize=100').then(response => {
-              const {data} = response;
-              const tickers = data.filter(d => d.volume > 100000 && d.symbol.length < 5).map(t => t.symbol);
-              const additionalTickers = tickers.filter(t => currentTickersBeingWatched.indexOf(t) < 0);
+      const _intervalId = setInterval(() => {
+        axios.get('https://securitiesapi.webullfintech.com/api/securities/market/v5/card/stockActivityPc.advanced/list?regionId=6&userRegionId=1&hasNum=0&pageSize=100').then(response => {
+          const { data } = response;
+          const tickers = data.filter(d => d.volume > 100000 && d.symbol.length < 5).map(t => t.symbol);
+          const additionalTickers = tickers.filter(t => currentTickersBeingWatched.indexOf(t) < 0);
 
-              if(additionalTickers.length) {
-                socket.subscribeForBars(additionalTickers);
-                socket.subscribeForTrades(additionalTickers);
-                getSnapshots(additionalTickers);
-              }
-              currentTickersBeingWatched = [...currentTickersBeingWatched, ...additionalTickers];
-          });
-       }, 30000);
-       registerGainersPollingId(_intervalId);
+          if (additionalTickers.length) {
+            socket.subscribeForBars(additionalTickers);
+            socket.subscribeForTrades(additionalTickers);
+            getSnapshots(additionalTickers);
+          }
+          currentTickersBeingWatched = [...currentTickersBeingWatched, ...additionalTickers];
+        });
+      }, 30000);
+      registerGainersPollingId(_intervalId);
 
     });
 
@@ -96,32 +96,36 @@ class DataStream {
       // }
       // notifyLastTrade(lastTradesForSymbol);
 
-      const PERCENTAGE_DEVIATION = 5;
+      const PERCENTAGE_DEVIATION = 3;
       const NOTIFY_EVERY_N_MINUTES = 2;
 
       const intradayTickerData = intradayStatsForTickers[trade.Symbol] ? intradayStatsForTickers[trade.Symbol].today : {};
 
       const { HighPrice, LowPrice, lastNotified } = intradayTickerData;
 
-      if(HighPrice) {
-        const percentageDeviation = ((HighPrice - trade.Price)/HighPrice) * 100;
+      if (HighPrice) {
+        const percentageDeviation = ((HighPrice - trade.Price) / HighPrice) * 100;
 
-        if(percentageDeviation <= PERCENTAGE_DEVIATION && percentageDeviation >= -(PERCENTAGE_DEVIATION)) {
-            if(lastNotified) {
-              const numberOfMilliSecondsApart = NOTIFY_EVERY_N_MINUTES * 60 * 1000;
-              if((Date.now() - lastNotified) > numberOfMilliSecondsApart) {
-                // Notify Client
-                alertClientHOD(trade.Symbol);
-                intradayTickerData.lastNotified = Date.now();
-              }
-            } else {
+        if (percentageDeviation <= PERCENTAGE_DEVIATION && percentageDeviation >= -(PERCENTAGE_DEVIATION)) {
+          if (lastNotified) {
+            const numberOfMilliSecondsApart = NOTIFY_EVERY_N_MINUTES * 60 * 1000;
+            if ((Date.now() - lastNotified) > numberOfMilliSecondsApart) {
               // Notify Client
-              alertClientHOD(trade.Symbol);
+              alertClientHOD({ symbol: trade.Symbol, now: Date.now(), lastNotified: lastNotified });
+              // console.log(trade.Symbol);
+              // console.log(percentageDeviation);
               intradayTickerData.lastNotified = Date.now();
             }
+          } else {
+            // Notify Client
+            alertClientHOD({ symbol: trade.Symbol, now: Date.now() });
+            // console.log(trade.Symbol);
+            // console.log(percentageDeviation);
+            intradayTickerData.lastNotified = Date.now();
+          }
         }
 
-        if(trade.Price > HighPrice) {
+        if (trade.Price > HighPrice) {
           intradayTickerData.HighPrice = trade.Price;
         }
 
@@ -158,7 +162,7 @@ class DataStream {
         dataStreamConnectionsActive--;
       }
       lastPricesFromBars = {};
-      dataStreamConnectionPromiseResolve = () => {};
+      dataStreamConnectionPromiseResolve = () => { };
     });
   }
 }
