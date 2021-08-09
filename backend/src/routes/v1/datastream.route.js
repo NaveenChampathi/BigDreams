@@ -1,13 +1,14 @@
 const express = require('express');
 const axios = require('axios');
 const Alpaca = require('@alpacahq/alpaca-trade-api');
-const { alertClient, notifyLastTrade } = require('../../services/notification.service');
+const { alertClient, alertClientHOD, notifyLastTrade } = require('../../services/notification.service');
 const { registerGainersPollingId } = require('../../utils/pollingHelper'); 
 
-const API_KEY = 'AKUZGQ4LP0JFTH8MLI8G';
-const API_SECRET = 'SxyK42v8ziuSjtXiku9AEjKOLBT95C8xeu5GyzSb';
+// const API_KEY = 'AKUZGQ4LP0JFTH8MLI8G';
+// const API_SECRET = 'SxyK42v8ziuSjtXiku9AEjKOLBT95C8xeu5GyzSb';
 let lastPricesFromBars = {};
-const lastTradesForSymbol = {}
+const lastTradesForSymbol = {};
+const intradayStatsForTickers = {};
 let currentTickersBeingWatched = [];
 
 let watchlistId = '';
@@ -22,7 +23,20 @@ class DataStream {
       feed,
     });
 
+    const alpacaConfig = this.alpaca.configuration;
+
     const socket = this.alpaca.data_stream_v2;
+
+    const getSnapshots = (tickers) => {
+      this.alpaca.getSnapshots(tickers, alpacaConfig).then(data => {
+        data.forEach(d => {
+          intradayStatsForTickers[d.symbol] = {
+            today: d.DailyBar,
+            previousDay: d.PrevDailyBar
+          }
+        })
+      });
+    }
 
     socket.onConnect(() => {
       console.log('Connected');
@@ -47,6 +61,7 @@ class DataStream {
           currentTickersBeingWatched = tickers.map(t => t.symbol);
           socket.subscribeForBars(currentTickersBeingWatched);
           socket.subscribeForTrades(currentTickersBeingWatched);
+          getSnapshots(currentTickersBeingWatched);
       });
 
         const _intervalId = setInterval(() => {
@@ -54,10 +69,13 @@ class DataStream {
               const {data} = response;
               const tickers = data.filter(d => d.volume > 100000 && d.symbol.length < 5).map(t => t.symbol);
               const additionalTickers = tickers.filter(t => currentTickersBeingWatched.indexOf(t) < 0);
-              socket.subscribeForBars(additionalTickers);
-              socket.subscribeForTrades(additionalTickers);
-              currentTickersBeingWatched = [...currentTickersBeingWatched, ...additionalTickers];
 
+              if(additionalTickers.length) {
+                socket.subscribeForBars(additionalTickers);
+                socket.subscribeForTrades(additionalTickers);
+                getSnapshots(additionalTickers);
+              }
+              currentTickersBeingWatched = [...currentTickersBeingWatched, ...additionalTickers];
           });
        }, 30000);
        registerGainersPollingId(_intervalId);
@@ -70,13 +88,46 @@ class DataStream {
 
     socket.onStockTrade((trade) => {
       // console.log(trade);
-      if(lastTradesForSymbol[trade.Symbol]) {
-        const increased = trade.Price > lastTradesForSymbol[trade.Symbol].Price;
-        lastTradesForSymbol[trade.Symbol] = {...trade, increased}
-      } else {
-        lastTradesForSymbol[trade.Symbol] = trade;
-      }
+      // if(lastTradesForSymbol[trade.Symbol]) {
+      //   const increased = trade.Price > lastTradesForSymbol[trade.Symbol].Price;
+      //   lastTradesForSymbol[trade.Symbol] = {...trade, increased}
+      // } else {
+      //   lastTradesForSymbol[trade.Symbol] = trade;
+      // }
       // notifyLastTrade(lastTradesForSymbol);
+
+      const PERCENTAGE_DEVIATION = 5;
+      const NOTIFY_EVERY_N_MINUTES = 2;
+
+      const intradayTickerData = intradayStatsForTickers[trade.Symbol] ? intradayStatsForTickers[trade.Symbol].today : {};
+
+      const { HighPrice, LowPrice, lastNotified } = intradayTickerData;
+
+      if(HighPrice) {
+        const percentageDeviation = ((HighPrice - trade.Price)/HighPrice) * 100;
+
+        if(percentageDeviation <= PERCENTAGE_DEVIATION && percentageDeviation >= -(PERCENTAGE_DEVIATION)) {
+            if(lastNotified) {
+              const numberOfMilliSecondsApart = NOTIFY_EVERY_N_MINUTES * 60 * 1000;
+              if((Date.now() - lastNotified) > numberOfMilliSecondsApart) {
+                // Notify Client
+                alertClientHOD(trade.Symbol);
+                intradayTickerData.lastNotified = Date.now();
+              }
+            } else {
+              // Notify Client
+              alertClientHOD(trade.Symbol);
+              intradayTickerData.lastNotified = Date.now();
+            }
+        }
+
+        if(trade.Price > HighPrice) {
+          intradayTickerData.HighPrice = trade.Price;
+        }
+
+        intradayStatsForTickers[trade.Symbol].today = intradayTickerData;
+      }
+
     });
 
     socket.onStockQuote((quote) => {

@@ -1,20 +1,21 @@
 const mongoose = require('mongoose');
   
 // Course Modal Schema
-const stockSymbol = new mongoose.Schema({
+const stockHistoryModel = new mongoose.Schema({
     _id: mongoose.Schema.Types.ObjectId,
     TimeStamp: String,
-    High: Number,
-    Open: Number,
-    Low: Number,
-    Close: Number,
-    Volume: Number
-});
+    HighPrice: Number,
+    OpenPrice: Number,
+    LowPrice: Number,
+    ClosePrice: Number,
+    Volume: Number,
+    VWAP: Number
+}, { collection: 'data' });
 
-const createCollections = (symbols) => {
-    
+const getCollection = (symbol) => {
+    const StockHistoryCollection = mongoose.model(`stock_history_symbol_${symbol}` , stockHistoryModel, `stock_history_symbol_${symbol}`);
+    return StockHistoryCollection;
 }
 
-const StockSymbols = mongoose.model('stock_symbols', stockSymbol);
 
-module.exports = StockSymbols;
+module.exports = {getCollection};

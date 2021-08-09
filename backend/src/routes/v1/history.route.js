@@ -14,8 +14,7 @@ const toISOStringLocal = (d, yearsBack) => {
     return ( n < 10 ? '0' : '' ) + n;
   };
   const year = yearsBack ? d.getFullYear() - yearsBack : d.getFullYear();
-  return year + '-' + z(d.getMonth()+1) + '-' + z(d.getDate());
-          
+  return year + '-' + z(d.getMonth()+1) + '-' + z(d.getDate());     
 };
 
 router.get(

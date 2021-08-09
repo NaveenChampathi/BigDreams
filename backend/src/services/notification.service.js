@@ -11,6 +11,12 @@ const alertClient = (symbol, up) => {
     }
 }
 
+const alertClientHOD = (symbol) => {
+    if(_socket) {
+        _socket.emit("AlertHOD", {symbol});
+    }
+}
+
 const notifyLastTrade = (data) => {
     if(_socket) {
         _socket.emit("LastTrade", data);
@@ -43,6 +49,7 @@ const notifyHalts = (data) => {
 module.exports = {
     registerSocket,
     alertClient,
+    alertClientHOD,
     notifyLastTrade,
     notifyTickerFundamentals,
     notifyGainers,

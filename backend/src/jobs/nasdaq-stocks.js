@@ -13,10 +13,10 @@ csv()
     const filteredJson = jsonObj
       .filter((j) => parseInt(j['Market Cap']) < MARKET_CAP_UPPER_LIMIT && j.Symbol.length < 5)
     //   .map((j) => ({ _id: mongoose.Types.ObjectId(), symbol: j.Symbol }));
-    console.log(filteredJson);
+    // console.log(filteredJson);
 
     // mongoose connection
-    mongoose
+     mongoose
       .connect('mongodb://127.0.0.1:27017/dreams', {
         useCreateIndex: true,
         useNewUrlParser: true,
@@ -33,9 +33,11 @@ csv()
             StockSymbols.insertMany(symbolsToSave)
             .then(value => {
                 console.log("Saved Successfully");
+                mongoose.connection.close();
             })
             .catch(error => {
                 console.log(error);
+                mongoose.connection.close();
             });
         });
       });
