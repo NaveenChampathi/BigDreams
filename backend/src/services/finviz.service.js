@@ -85,7 +85,8 @@ const getStockData = async (symbol) => {
                 var newsData = newsTableRows[idx].getElementsByTagName("td");
                 news.push({
                     date: newsData[0].textContent,
-                    news: newsData[1].textContent
+                    news: newsData[1].textContent,
+                    url: newsData[1].getElementsByClassName("tab-link-news")[0].getAttribute("href")
                 });
              }
 

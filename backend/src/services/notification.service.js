@@ -11,9 +11,9 @@ const alertClient = (symbol, up) => {
     }
 }
 
-const alertClientHOD = ({ symbol, lastNotified, now }) => {
+const alertClientHOD = ({ symbol, lastNotified, now, count }) => {
     if (_socket) {
-        _socket.emit("AlertHOD", { symbol, lastNotified, now });
+        _socket.emit("AlertHOD", { symbol, lastNotified, now, count });
     }
 }
 
