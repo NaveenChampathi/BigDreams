@@ -126,35 +126,53 @@ class DataStream {
                 lastNotified: lastNotified,
                 count: (count || 0) + 1,
               };
-
-              this.alpaca.getSnapshot(trade.Symbol, this.alpaca.configuration).then(({ DailyBar }) => {
-                if (DailyBar.Volume > VOLUME_FILTER_FOR_HOD && trade.Price < 20 && trade.Price >= 3) {
-                  intradayTickerData.lastNotified = Date.now();
-                  intradayTickerData.count = (count || 0) + 1;
-                  alertClientHOD(notification);
-                  // Save to mongo
-                  SymbolHOD.insertMany({ _id: mongoose.Types.ObjectId(), ...notification })
-                    .then((value) => {})
-                    .catch((error) => {});
-                  }
-                  
-              });
+              try {
+                this.alpaca
+                  .getSnapshot(trade.Symbol, this.alpaca.configuration)
+                  .then(({ DailyBar }) => {
+                    if (DailyBar.Volume > VOLUME_FILTER_FOR_HOD && trade.Price < 20 && trade.Price >= 3) {
+                      intradayTickerData.lastNotified = Date.now();
+                      intradayTickerData.count = (count || 0) + 1;
+                      alertClientHOD(notification);
+                      // Save to mongo
+                      SymbolHOD.insertMany({ _id: mongoose.Types.ObjectId(), ...notification })
+                        .then((value) => {})
+                        .catch((error) => {});
+                    }
+                  })
+                  .catch((err) => {
+                    console.log('3. -----Error-----');
+                    // console.log(err);
+                  });
+              } catch (err) {
+                console.log('4. -----Error-----');
+                // console.log(err);
+              }
             }
           } else {
             const notification = { symbol: trade.Symbol, now: Date.now(), count: (count || 0) + 1 };
-
-            this.alpaca.getSnapshot(trade.Symbol, this.alpaca.configuration).then(({ DailyBar }) => {
-              if (DailyBar.Volume > VOLUME_FILTER_FOR_HOD && trade.Price < 20 && trade.Price >= 3) {
-                intradayTickerData.lastNotified = Date.now();
-                intradayTickerData.count = (count || 0) + 1;
-                alertClientHOD(notification);
-                // Save to mongo
-                SymbolHOD.insertMany({ _id: mongoose.Types.ObjectId(), ...notification, lastNotified: Date.now() })
-                  .then((value) => {})
-                  .catch((error) => {});
-              }
-              
-            });
+            try {
+              this.alpaca
+                .getSnapshot(trade.Symbol, this.alpaca.configuration)
+                .then(({ DailyBar }) => {
+                  if (DailyBar.Volume > VOLUME_FILTER_FOR_HOD && trade.Price < 20 && trade.Price >= 3) {
+                    intradayTickerData.lastNotified = Date.now();
+                    intradayTickerData.count = (count || 0) + 1;
+                    alertClientHOD(notification);
+                    // Save to mongo
+                    SymbolHOD.insertMany({ _id: mongoose.Types.ObjectId(), ...notification, lastNotified: Date.now() })
+                      .then((value) => {})
+                      .catch((error) => {});
+                  }
+                })
+                .catch((err) => {
+                  console.log('1. -----Error-----');
+                  // console.log(err);
+                });
+            } catch (err) {
+              console.log('2. -----Error-----');
+              // console.log(err);
+            }
           }
         }
 
