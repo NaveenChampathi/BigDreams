@@ -3,8 +3,10 @@ const axios = require('axios');
 const Alpaca = require('@alpacahq/alpaca-trade-api');
 const mongoose = require('mongoose');
 const { alertClient, alertClientHOD, notifyLastTrade } = require('../../services/notification.service');
+
 const SymbolHOD = require('../../models/hod-scanner.model');
-const { registerGainersPollingId } = require('../../utils/pollingHelper');
+const { registerGainersPollingId } = require('@utils/pollingHelper');
+const { toISOStringLocal } = require('@utils/index');
 
 // const API_KEY = 'AKUZGQ4LP0JFTH8MLI8G';
 // const API_SECRET = 'SxyK42v8ziuSjtXiku9AEjKOLBT95C8xeu5GyzSb';
@@ -105,83 +107,77 @@ class DataStream {
       //   lastTradesForSymbol[trade.Symbol] = trade;
       // }
       // notifyLastTrade(lastTradesForSymbol);
-
-      const PERCENTAGE_DEVIATION = 3;
-      const NOTIFY_EVERY_N_MINUTES = 2;
-
-      const intradayTickerData = intradayStatsForTickers[trade.Symbol] ? intradayStatsForTickers[trade.Symbol].today : {};
-
-      const { HighPrice, LowPrice, lastNotified, count } = intradayTickerData;
-
-      if (HighPrice) {
-        const percentageDeviation = ((HighPrice - trade.Price) / HighPrice) * 100;
-
-        if (percentageDeviation <= PERCENTAGE_DEVIATION && percentageDeviation >= -PERCENTAGE_DEVIATION) {
-          if (lastNotified) {
-            const numberOfMilliSecondsApart = NOTIFY_EVERY_N_MINUTES * 60 * 1000;
-            if (Date.now() - lastNotified > numberOfMilliSecondsApart) {
-              const notification = {
-                symbol: trade.Symbol,
-                now: Date.now(),
-                lastNotified: lastNotified,
-                count: (count || 0) + 1,
-              };
-              try {
-                this.alpaca
-                  .getSnapshot(trade.Symbol, this.alpaca.configuration)
-                  .then(({ DailyBar }) => {
-                    if (DailyBar.Volume > VOLUME_FILTER_FOR_HOD && trade.Price < 20 && trade.Price >= 3) {
-                      intradayTickerData.lastNotified = Date.now();
-                      intradayTickerData.count = (count || 0) + 1;
-                      alertClientHOD(notification);
-                      // Save to mongo
-                      SymbolHOD.insertMany({ _id: mongoose.Types.ObjectId(), ...notification })
-                        .then((value) => {})
-                        .catch((error) => {});
-                    }
-                  })
-                  .catch((err) => {
-                    console.log('3. -----Error-----');
-                    // console.log(err);
-                  });
-              } catch (err) {
-                console.log('4. -----Error-----');
-                // console.log(err);
-              }
-            }
-          } else {
-            const notification = { symbol: trade.Symbol, now: Date.now(), count: (count || 0) + 1 };
-            try {
-              this.alpaca
-                .getSnapshot(trade.Symbol, this.alpaca.configuration)
-                .then(({ DailyBar }) => {
-                  if (DailyBar.Volume > VOLUME_FILTER_FOR_HOD && trade.Price < 20 && trade.Price >= 3) {
-                    intradayTickerData.lastNotified = Date.now();
-                    intradayTickerData.count = (count || 0) + 1;
-                    alertClientHOD(notification);
-                    // Save to mongo
-                    SymbolHOD.insertMany({ _id: mongoose.Types.ObjectId(), ...notification, lastNotified: Date.now() })
-                      .then((value) => {})
-                      .catch((error) => {});
-                  }
-                })
-                .catch((err) => {
-                  console.log('1. -----Error-----');
-                  // console.log(err);
-                });
-            } catch (err) {
-              console.log('2. -----Error-----');
-              // console.log(err);
-            }
-          }
-        }
-
-        if (trade.Price > HighPrice) {
-          intradayTickerData.HighPrice = trade.Price;
-        }
-
-        intradayStatsForTickers[trade.Symbol].today = intradayTickerData;
-      }
+      // ---------- Intrday HOD ---------------- //
+      // const PERCENTAGE_DEVIATION = 3;
+      // const NOTIFY_EVERY_N_MINUTES = 2;
+      // const intradayTickerData = intradayStatsForTickers[trade.Symbol] ? intradayStatsForTickers[trade.Symbol].today : {};
+      // const { HighPrice, LowPrice, lastNotified, count } = intradayTickerData;
+      // if (HighPrice) {
+      //   const percentageDeviation = ((HighPrice - trade.Price) / HighPrice) * 100;
+      //   if (percentageDeviation <= PERCENTAGE_DEVIATION && percentageDeviation >= -PERCENTAGE_DEVIATION) {
+      //     if (lastNotified) {
+      //       const numberOfMilliSecondsApart = NOTIFY_EVERY_N_MINUTES * 60 * 1000;
+      //       if (Date.now() - lastNotified > numberOfMilliSecondsApart) {
+      //         const notification = {
+      //           symbol: trade.Symbol,
+      //           now: Date.now(),
+      //           lastNotified: lastNotified,
+      //           count: (count || 0) + 1,
+      //         };
+      //         try {
+      //           this.alpaca
+      //             .getSnapshot(trade.Symbol, this.alpaca.configuration)
+      //             .then(({ DailyBar }) => {
+      //               if (DailyBar.Volume > VOLUME_FILTER_FOR_HOD && trade.Price < 20 && trade.Price >= 3) {
+      //                 intradayTickerData.lastNotified = Date.now();
+      //                 intradayTickerData.count = (count || 0) + 1;
+      //                 alertClientHOD(notification);
+      //                 // Save to mongo
+      //                 SymbolHOD.insertMany({ _id: mongoose.Types.ObjectId(), ...notification })
+      //                   .then((value) => {})
+      //                   .catch((error) => {});
+      //               }
+      //             })
+      //             .catch((err) => {
+      //               console.log('3. -----Error-----');
+      //               // console.log(err);
+      //             });
+      //         } catch (err) {
+      //           console.log('4. -----Error-----');
+      //           // console.log(err);
+      //         }
+      //       }
+      //     } else {
+      //       const notification = { symbol: trade.Symbol, now: Date.now(), count: (count || 0) + 1 };
+      //       try {
+      //         this.alpaca
+      //           .getSnapshot(trade.Symbol, this.alpaca.configuration)
+      //           .then(({ DailyBar }) => {
+      //             if (DailyBar.Volume > VOLUME_FILTER_FOR_HOD && trade.Price < 20 && trade.Price >= 3) {
+      //               intradayTickerData.lastNotified = Date.now();
+      //               intradayTickerData.count = (count || 0) + 1;
+      //               alertClientHOD(notification);
+      //               // Save to mongo
+      //               SymbolHOD.insertMany({ _id: mongoose.Types.ObjectId(), ...notification, lastNotified: Date.now() })
+      //                 .then((value) => {})
+      //                 .catch((error) => {});
+      //             }
+      //           })
+      //           .catch((err) => {
+      //             console.log('1. -----Error-----');
+      //             // console.log(err);
+      //           });
+      //       } catch (err) {
+      //         console.log('2. -----Error-----');
+      //         // console.log(err);
+      //       }
+      //     }
+      //   }
+      //   if (trade.Price > HighPrice) {
+      //     intradayTickerData.HighPrice = trade.Price;
+      //   }
+      //   intradayStatsForTickers[trade.Symbol].today = intradayTickerData;
+      // }
     });
 
     socket.onStockQuote((quote) => {
@@ -200,6 +196,29 @@ class DataStream {
       if (bar.HighPrice - bar.LowPrice >= delta && bar.OpenPrice < bar.ClosePrice) {
         alertClient(bar.Symbol, true);
       }
+
+      // Check for potential Gap and Crap
+      // 1. Significant rise in volume
+
+      // try {
+      //   const resp = this.alpaca.getBarsV2(
+      //     req.params.ticker,
+      //     {
+      //       start: toISOStringLocal(new Date()) + 'T04:00:00-04:00',
+      //       end: toISOStringLocal(new Date()) + 'T20:00:00-04:00',
+      //       timeframe: '1Min',
+      //     },
+      //     this.alpaca.configuration
+      //   );
+
+      //   const bars = [];
+      //   for await (let b of resp) {
+      //     bars.push(b);
+      //   }
+
+      // } catch (err) {
+      //   console.log(err);
+      // }
     });
 
     socket.onStateChange((state) => {

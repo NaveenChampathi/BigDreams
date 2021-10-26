@@ -13,6 +13,13 @@ const haltHistoryModel = new mongoose.Schema({
   resumptionDate: String,
   resumptionQuoteTime: String,
   resumptionTradeTime: String,
+  validHaltResumeEntry: Boolean,
+  validMarketOpenHaltEntry: Boolean,
+  dayVolume: Number,
+  haltedBarStat: {
+    type: Map,
+    of: String,
+  },
 });
 
 const HaltHistory = mongoose.model('halt_history', haltHistoryModel);

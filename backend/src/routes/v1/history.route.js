@@ -46,6 +46,32 @@ router.get('/get-bars/:ticker', async (req, res, next) => {
   }
 });
 
+router.get('/get-daily-bars/:date/:ticker', async (req, res, next) => {
+  try {
+    const resp = alpaca.getBarsV2(
+      req.params.ticker,
+      {
+        start: toISOStringLocal(new Date(), 3),
+        end: req.params.date,
+        timeframe: '1Day',
+      },
+      alpaca.configuration
+    );
+
+    const bars = [];
+
+    let previousClose = null;
+    for await (let b of resp) {
+      bars.push(b);
+      previousClose = b.ClosePrice;
+    }
+
+    res.json(bars);
+  } catch (err) {
+    console.log(err);
+  }
+});
+
 router.get('/get-bars/intraday/:date/:ticker', async (req, res, next) => {
   try {
     const resp = alpaca.getBarsV2(
