@@ -20,6 +20,14 @@ const haltHistoryModel = new mongoose.Schema({
     type: Map,
     of: String,
   },
+  intradayHighAfterHalt: {
+    type: Map,
+    of: String,
+  },
+  intradayLowAfterHalt: {
+    type: Map,
+    of: String,
+  },
 });
 
 const HaltHistory = mongoose.model('halt_history', haltHistoryModel);

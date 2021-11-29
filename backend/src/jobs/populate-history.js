@@ -29,45 +29,69 @@ mongoose
       // Find symbols that are not in db
       const db_results = results.map((r) => r.symbol);
       //   console.log(db_results);
-
       for await (let symbol of db_results) {
+        let startDate = toISOStringLocal(new Date(), 3);
         const StockSymbolCollection = getCollection(symbol);
-        const resp = alpaca.getBarsV2(
-          symbol,
-          {
-            start: toISOStringLocal(new Date(), 3),
-            end: toISOStringLocal(new Date()),
-            timeframe: '1Day',
-          },
-          alpaca.configuration
-        );
+        const documents = await StockSymbolCollection.find({}).sort({ TimeStamp: 1 });
 
-        const bars = [];
+        documents.forEach(async (doc, i) => {
+          if (i > 0) {
+            let previousClose = documents[i - 1].ClosePrice;
+            await StockSymbolCollection.updateOne(
+              {
+                _id: doc._id,
+              },
+              {
+                $set: {
+                  gapUp: (((doc.OpenPrice - previousClose) / previousClose) * 100).toFixed(2),
+                  PreviousClose: previousClose,
+                },
+              }
+            );
+          }
+          previousClose = doc.ClosePrice;
+        });
+        //   const latestDateDocument = await StockSymbolCollection.find({}).sort({ TimeStamp: -1 }).limit(1);
+        //   if (latestDateDocument && latestDateDocument.length) {
+        //     startDate = toISOStringLocal(new Date(latestDateDocument[0].TimeStamp));
+        //   }
+        //   const resp = alpaca.getBarsV2(
+        //     symbol,
+        //     {
+        //       start: startDate,
+        //       end: toISOStringLocal(new Date()),
+        //       timeframe: '1Day',
+        //     },
+        //     alpaca.configuration
+        //   );
 
-        for await (let b of resp) {
-          bars.push({
-            _id: mongoose.Types.ObjectId(),
-            TimeStamp: b.Timestamp,
-            HighPrice: b.HighPrice,
-            OpenPrice: b.OpenPrice,
-            LowPrice: b.LowPrice,
-            ClosePrice: b.ClosePrice,
-            Volume: b.Volume,
-            VWAP: b.vw,
-          });
-        }
+        //   const bars = [];
 
-        console.log(symbol + ' Processing complete');
+        //   for await (let b of resp) {
+        //     bars.push({
+        //       _id: mongoose.Types.ObjectId(),
+        //       TimeStamp: b.Timestamp,
+        //       HighPrice: b.HighPrice,
+        //       OpenPrice: b.OpenPrice,
+        //       LowPrice: b.LowPrice,
+        //       ClosePrice: b.ClosePrice,
+        //       Volume: b.Volume,
+        //       VWAP: b.vw,
+        //     });
+        //   }
 
-        await StockSymbolCollection.insertMany(bars)
-          .then((value) => {
-            console.log(symbol + ' Saved Successfully');
-            //   mongoose.connection.close();
-          })
-          .catch((error) => {
-            console.log(symbol + ' ' + error);
-            //   mongoose.connection.close();
-          });
+        //   console.log(symbol + ' Processing complete');
+
+        //   await StockSymbolCollection.insertMany(bars)
+        //     .then((value) => {
+        //       console.log(symbol + ' Saved Successfully');
+        //       //   mongoose.connection.close();
+        //     })
+        //     .catch((error) => {
+        //       console.log(symbol + ' ' + error);
+        //       //   mongoose.connection.close();
+        //     });
+        console.log(symbol);
       }
     });
   })

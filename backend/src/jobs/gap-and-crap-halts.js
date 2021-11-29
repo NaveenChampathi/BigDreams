@@ -6,10 +6,40 @@ const HaltHistory = require('../models/halt-history.model');
 const alpaca = new Alpaca();
 
 const constructDate = (date) => {
-  const dateParams = date.split('/');
+  // const dateParams = date.split('/');
 
   // return `${dateParams[2]}-${dateParams[0]}-${dateParams[1]}T04:00:00Z`;
-  return `${dateParams[2]}-${dateParams[0]}-${dateParams[1]}`;
+  // return `${dateParams[2]}-${dateParams[0]}-${dateParams[1]}`;
+  return date.split('T')[0];
+};
+
+const getIntradayStats = (_bars) => {
+  let intradayHighAfterHalt = {
+    HighPrice: 0,
+  };
+  let intradayLowAfterHalt = {
+    LowPrice: 1000,
+  };
+
+  let intradayHighIndex = 0;
+
+  _bars.forEach((b, i) => {
+    if (b.HighPrice >= intradayHighAfterHalt.HighPrice) {
+      intradayHighAfterHalt = b;
+      intradayHighIndex = i;
+    }
+  });
+
+  _bars.slice(intradayHighIndex).forEach((b) => {
+    if (b.LowPrice <= intradayLowAfterHalt.LowPrice) {
+      intradayLowAfterHalt = b;
+    }
+  });
+
+  return {
+    High: intradayHighAfterHalt,
+    Low: intradayLowAfterHalt,
+  };
 };
 
 const isHaltAndCrap = (_bars, preMarketVolume) => {
@@ -33,9 +63,18 @@ const isHaltAndCrap = (_bars, preMarketVolume) => {
       if (duration >= 5) {
         haltedBarsStats.push({
           haltBarIndex: i - 1,
-          avgVolumeLeadingToHalt: (volumeLeadingToHalt - barNow.Volume) / (i - 1),
+          avgVolumeLeadingToHalt: volumeLeadingToHalt / (i - 1),
           haltBarVolume: barPrevious.Volume,
+          haltBarClosePrice: barPrevious.ClosePrice,
+          haltBarOpenPrice: barPrevious.OpenPrice,
+          haltBarHighPrice: barPrevious.HighPrice,
+          haltBarLowPrice: barPrevious.LowPrice,
           haltOpenBarVolume: barNow.Volume,
+          haltOpenBarClosePrice: barNow.ClosePrice,
+          haltOpenBarOpenPrice: barNow.OpenPrice,
+          haltOpenBarHighPrice: barNow.HighPrice,
+          haltOpenBarLowPrice: barNow.LowPrice,
+          upHalt: barPrevious.ClosePrice > barPrevious.OpenPrice,
         });
       }
     }
@@ -53,7 +92,25 @@ const isHaltAndCrap = (_bars, preMarketVolume) => {
     }
   }
 
-  return { isHaltAndCrapEligible, haltedBarStat };
+  let intradayStats = {};
+  debugger;
+  if (Object.keys(haltedBarStat).length) {
+    intradayStats = getIntradayStats(_bars.slice(haltedBarStat.haltBarIndex));
+  }
+
+  // console.log({
+  //   isHaltAndCrapEligible,
+  //   haltedBarStat,
+  //   intradayHighAfterHalt: intradayStats.High,
+  //   intradayLowAfterHalt: intradayStats.Low,
+  // });
+
+  return {
+    isHaltAndCrapEligible,
+    haltedBarStat,
+    intradayHighAfterHalt: intradayStats.High,
+    intradayLowAfterHalt: intradayStats.Low,
+  };
 };
 
 mongoose
@@ -64,6 +121,9 @@ mongoose
   })
   .then(async () => {
     const haltedTickers = await HaltHistory.find({ reasonCode: 'LUDP' }).exec();
+    // const t = await HaltHistory.findOne({ reasonCode: 'LUDP', validHaltResumeEntry: true }).exec();
+    // const haltedTickers = [t];
+    // console.log(haltedTickers);
 
     for await (let ticker of haltedTickers) {
       // const StockSymbolCollection = getCollection(ticker.issueSymbol);
@@ -123,8 +183,10 @@ mongoose
         const preMarketVolume = preMarketBars.reduce((previous, current) => {
           return previous.Volume + current.Volume;
         });
-
-        const { isHaltAndCrapEligible, haltedBarStat } = isHaltAndCrap(marketOpenBars, preMarketVolume);
+        const { isHaltAndCrapEligible, haltedBarStat, intradayLowAfterHalt, intradayHighAfterHalt } = isHaltAndCrap(
+          marketOpenBars,
+          preMarketVolume
+        );
 
         // console.log(isHaltAndCrapStatEligible);
 
@@ -134,13 +196,20 @@ mongoose
         try {
           await HaltHistory.updateOne(
             { _id: ticker.id },
-            { $set: { validHaltResumeEntry: isHaltAndCrapEligible, haltedBarStat } },
+            {
+              $set: {
+                validHaltResumeEntry: isHaltAndCrapEligible,
+                haltedBarStat,
+                intradayLowAfterHalt,
+                intradayHighAfterHalt,
+              },
+            },
             (e) => {
               if (e) {
                 console.log('Update Error');
               }
 
-              console.log('Updated ' + ticker.haltDate);
+              console.log('Updated ' + ticker.haltDate.split('T')[0]);
             }
           );
         } catch (e) {
@@ -148,9 +217,10 @@ mongoose
         }
         // }
       } catch (err) {
-        // console.log(err);
+        console.log(err);
       }
     }
 
     console.log('Done');
+    process.kill(process.pid);
   });

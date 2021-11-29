@@ -47,18 +47,18 @@ class DataStream {
       console.log('Connected');
       dataStreamConnectionsActive++;
       dataStreamConnectionPromiseResolve();
-      this.alpaca.getWatchlist(watchlistId).then((res) => {
-        let tickers = [];
-        if (res.assets) {
-          tickers = res.assets.map((r) => r.symbol);
-        }
+      // this.alpaca.getWatchlist(watchlistId).then((res) => {
+      //   let tickers = [];
+      //   if (res.assets) {
+      //     tickers = res.assets.map((r) => r.symbol);
+      //   }
 
-        if (tickers.length) {
-          // socket.subscribeForQuotes(tickers);
-          socket.subscribeForBars(tickers);
-          socket.subscribeForTrades(tickers);
-        }
-      });
+      //   if (tickers.length) {
+      //     // socket.subscribeForQuotes(tickers);
+      //     socket.subscribeForBars(tickers);
+      //     socket.subscribeForTrades(tickers);
+      //   }
+      // });
 
       axios
         .get(
@@ -71,6 +71,9 @@ class DataStream {
           socket.subscribeForBars(currentTickersBeingWatched);
           socket.subscribeForTrades(currentTickersBeingWatched);
           getSnapshots(currentTickersBeingWatched);
+        })
+        .catch((err) => {
+          console.log(err);
         });
 
       const _intervalId = setInterval(() => {
@@ -87,8 +90,13 @@ class DataStream {
               socket.subscribeForBars(additionalTickers);
               socket.subscribeForTrades(additionalTickers);
               getSnapshots(additionalTickers);
+              console.log(additionalTickers);
             }
             currentTickersBeingWatched = [...currentTickersBeingWatched, ...additionalTickers];
+            console.log(currentTickersBeingWatched);
+          })
+          .catch((err) => {
+            console.log(err);
           });
       }, 30000);
       registerGainersPollingId(_intervalId);
