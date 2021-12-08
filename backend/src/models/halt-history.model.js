@@ -16,6 +16,8 @@ const haltHistoryModel = new mongoose.Schema({
   validHaltResumeEntry: Boolean,
   validMarketOpenHaltEntry: Boolean,
   dayVolume: Number,
+  float: String,
+  marketCap: String,
   haltedBarStat: {
     type: Map,
     of: String,

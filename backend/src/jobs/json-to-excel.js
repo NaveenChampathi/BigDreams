@@ -3,6 +3,8 @@ const HaltHistory = require('../models/halt-history.model');
 const json2xls = require('json2xls');
 const fs = require('fs');
 
+const { getStockData } = require('../services/finviz.service');
+
 const jsonArray = [];
 
 // Gap and crap stats excel conversion
@@ -19,8 +21,33 @@ mongoose
     for await (let ticker of haltedTickers) {
       const { haltedBarStat, intradayHighAfterHalt, intradayLowAfterHalt } = ticker;
       if (haltedBarStat && intradayHighAfterHalt && intradayLowAfterHalt) {
+        let fundamentals = {};
+        try {
+          fundamentals = await getStockData(ticker.issueSymbol);
+          await HaltHistory.updateOne(
+            { _id: ticker.id },
+            {
+              $set: {
+                float: fundamentals['Shs Float'],
+                marketCap: fundamentals['Market Cap'],
+              },
+            },
+            (e) => {
+              if (e) {
+                console.log('Update Error');
+              }
+
+              console.log('Updated ' + ticker.haltDate.split('T')[0]);
+            }
+          );
+        } catch (e) {
+          console.log('Error');
+        }
+
         let tempArray = {
           Symbol: ticker.issueSymbol,
+          Float: fundamentals['Shs Float'],
+          'Market Cap': fundamentals['Market Cap'],
           'Halt Date': ticker.haltDate.split('T')[0],
           'Halt Time': ticker.haltTime,
           'Day Volume': ticker.dayVolume,
