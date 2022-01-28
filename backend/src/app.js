@@ -1,5 +1,5 @@
 const express = require('express');
-const http = require("http");
+const http = require('http');
 const socketio = require('socket.io');
 const helmet = require('helmet');
 const xss = require('xss-clean');
@@ -23,9 +23,9 @@ const app = express();
 const server = http.createServer(app);
 const io = socketio(server, {
   cors: {
-    origin: "http://localhost:3001",
-    methods: ["GET", "POST"]
-  }
+    origin: 'http://localhost:8000',
+    methods: ['GET', 'POST'],
+  },
 });
 
 if (config.env !== 'test') {
@@ -83,18 +83,18 @@ app.use(errorHandler);
 // };
 
 // Socket implementation
-io.on("connection", (socket) => {
-  console.log("New client connected");
+io.on('connection', (socket) => {
+  console.log('New client connected');
   registerSocket(socket);
-  socket.on("disconnect", () => {
-    console.log("Client disconnected");
+  socket.on('disconnect', () => {
+    console.log('Client disconnected');
     unRegisterGainersPolling();
     registerSocket(null);
   });
 });
 
-server.listen(4001, () => {
-  console.log('Socket on 4001');
+server.listen(8002, () => {
+  console.log('Socket on 8002');
 });
 
 module.exports = app;

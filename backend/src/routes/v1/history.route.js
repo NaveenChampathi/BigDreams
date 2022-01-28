@@ -5,8 +5,9 @@ const Alpaca = require('@alpacahq/alpaca-trade-api');
 const VWAP = require('technicalindicators').VWAP;
 const API_KEY = 'AKUZGQ4LP0JFTH8MLI8G';
 const API_SECRET = 'SxyK42v8ziuSjtXiku9AEjKOLBT95C8xeu5GyzSb';
-const { getCollection } = require('../..//models/historical-stock-data.model');
-const StockSymbols = require('../..//models/stocks.model');
+const { getCollection } = require('../../models/historical-stock-data.model');
+const StockSymbols = require('../../models/stocks.model');
+const GapUps = require('../../models/gap-up-stats.model');
 
 const alpaca = new Alpaca();
 
@@ -20,11 +21,13 @@ const toISOStringLocal = (d, yearsBack) => {
   return year + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate());
 };
 
-const toISOStringLocalDays = (date, daysBack) => {
+const toISOStringLocalDays = (date, days, future = false) => {
   const z = (n) => {
     return (n < 10 ? '0' : '') + n;
   };
-  const dateObj = new Date(new Date(date).setDate(new Date(date).getDate() - daysBack));
+  const dateObj = new Date(
+    new Date(date).setDate(future ? new Date(date).getDate() + days : new Date(date).getDate() - days)
+  );
   return dateObj.getFullYear() + '-' + z(dateObj.getMonth() + 1) + '-' + z(dateObj.getDate());
 };
 
@@ -83,13 +86,37 @@ router.get('/get-daily-bars/:date/:ticker', async (req, res, next) => {
   }
 });
 
-router.get('/get-bars/intraday/:date/:ticker/:timeframe', async (req, res, next) => {
+router.get('/get-bars/intraday/:numberOfDaysBack/:numberOfDaysFuture/:date/:ticker/:timeframe', async (req, res, next) => {
+  try {
+    const resp = alpaca.getBarsV2(
+      req.params.ticker,
+      {
+        start: toISOStringLocalDays(req.params.date, parseInt(req.params.numberOfDaysBack)) + 'T04:00:00-04:00',
+        end: toISOStringLocalDays(req.params.date, parseInt(req.params.numberOfDaysFuture), true) + 'T20:00:00-04:00',
+        timeframe: `${req.params.timeframe}Min`,
+      },
+      alpaca.configuration
+    );
+
+    const bars = [];
+    for await (let b of resp) {
+      b.Timestamp = moment.tz(b.Timestamp, 'America/New_York').format();
+      bars.push(b);
+    }
+
+    res.json(bars);
+  } catch (err) {
+    console.log(err);
+  }
+});
+
+router.get('/get-bars/intraday/:date/:ticker/:timeframe/', async (req, res, next) => {
   try {
     const resp = alpaca.getBarsV2(
       req.params.ticker,
       {
         start: toISOStringLocalDays(req.params.date, 3) + 'T04:00:00-04:00',
-        end: req.params.date + 'T20:00:00-04:00',
+        end: toISOStringLocalDays(req.params.date, 1, true) + 'T20:00:00-04:00',
         timeframe: `${req.params.timeframe}Min`,
       },
       alpaca.configuration
@@ -175,23 +202,11 @@ router.get('/technicals/:ticker', async (req, res, next) => {
 
 const getAllGappedTickers = () => {
   return async (req, res, next) => {
-    let _results = [];
-    const { gapUp, volume } = req.query;
+    // let _results = [];
+    // const { gapUp, volume } = req.query;
     try {
-      await StockSymbols.find({}, async (err, results) => {
-        // Find symbols that are not in db
-        const db_results = results.map((r) => r.symbol);
-        //   console.log(db_results);
-        for await (let symbol of db_results) {
-          const StockSymbolCollection = getCollection(symbol);
-          const documents = await StockSymbolCollection.find({ gapUp: { $gte: gapUp }, Volume: { $gte: volume } }).sort({
-            TimeStamp: 1,
-          });
-
-          _results = [..._results, ...documents];
-        }
-
-        res.data = { results: _results };
+      await GapUps.find({}, async (err, results) => {
+        res.data = { results: results.filter(({ OpenPrice }) => OpenPrice >= 3) };
         console.log('processingDone');
         next();
       });
