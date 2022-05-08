@@ -23,7 +23,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketio(server, {
   cors: {
-    origin: 'http://localhost:8000',
+    origin: 'http://localhost:3001',
     methods: ['GET', 'POST'],
   },
 });
@@ -93,8 +93,8 @@ io.on('connection', (socket) => {
   });
 });
 
-server.listen(8002, () => {
-  console.log('Socket on 8002');
+server.listen(4001, () => {
+  console.log('Socket on 4001');
 });
 
 module.exports = app;

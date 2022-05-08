@@ -116,7 +116,7 @@ const getDatesToQuery = (dateUntil) => {
   const dates = [];
 
   for (; dateNowObj.getFullYear() >= 2018; ) {
-    if (dateUntil && dateNowObj.yyyymmdd() !== dateUntil) {
+    if (dateUntil && dateNowObj.yyyymmdd() === dateUntil) {
       break;
     }
     dates.push(dateNowObj.yyyymmdd());
@@ -129,7 +129,9 @@ const getDatesToQuery = (dateUntil) => {
 
 const fetchHaltsJob = async () => {
   const dates = getDatesToQuery('20210920');
-  // const dates = ['20210920'];
+  // const dates = ['20220305']; - Tickers till date
+
+  // console.log(dates);
 
   mongoose
     .connect('mongodb://127.0.0.1:27017/dreams', {

@@ -32,6 +32,9 @@ mongoose
       for await (let symbol of db_results) {
         let startDate = toISOStringLocal(new Date(), 3);
         const StockSymbolCollection = getCollection(symbol);
+
+        // START - Section 1
+
         const documents = await StockSymbolCollection.find({}).sort({ TimeStamp: 1 });
 
         documents.forEach(async (doc, i) => {
@@ -51,46 +54,51 @@ mongoose
           }
           previousClose = doc.ClosePrice;
         });
-        //   const latestDateDocument = await StockSymbolCollection.find({}).sort({ TimeStamp: -1 }).limit(1);
-        //   if (latestDateDocument && latestDateDocument.length) {
-        //     startDate = toISOStringLocal(new Date(latestDateDocument[0].TimeStamp));
-        //   }
-        //   const resp = alpaca.getBarsV2(
-        //     symbol,
-        //     {
-        //       start: startDate,
-        //       end: toISOStringLocal(new Date()),
-        //       timeframe: '1Day',
-        //     },
-        //     alpaca.configuration
-        //   );
 
-        //   const bars = [];
+        // END - updating gapup percentage on stock data
 
-        //   for await (let b of resp) {
-        //     bars.push({
-        //       _id: mongoose.Types.ObjectId(),
-        //       TimeStamp: b.Timestamp,
-        //       HighPrice: b.HighPrice,
-        //       OpenPrice: b.OpenPrice,
-        //       LowPrice: b.LowPrice,
-        //       ClosePrice: b.ClosePrice,
-        //       Volume: b.Volume,
-        //       VWAP: b.vw,
-        //     });
-        //   }
+        // START - Section 2
 
-        //   console.log(symbol + ' Processing complete');
+        // const latestDateDocument = await StockSymbolCollection.find({}).sort({ TimeStamp: -1 }).limit(1);
+        // if (latestDateDocument && latestDateDocument.length) {
+        //   startDate = toISOStringLocal(new Date(latestDateDocument[0].TimeStamp));
+        // }
+        // const resp = alpaca.getBarsV2(
+        //   symbol,
+        //   {
+        //     start: startDate,
+        //     end: toISOStringLocal(new Date()),
+        //     timeframe: '1Day',
+        //   },
+        //   alpaca.configuration
+        // );
 
-        //   await StockSymbolCollection.insertMany(bars)
-        //     .then((value) => {
-        //       console.log(symbol + ' Saved Successfully');
-        //       //   mongoose.connection.close();
-        //     })
-        //     .catch((error) => {
-        //       console.log(symbol + ' ' + error);
-        //       //   mongoose.connection.close();
-        //     });
+        // const bars = [];
+
+        // for await (let b of resp) {
+        //   bars.push({
+        //     _id: mongoose.Types.ObjectId(),
+        //     TimeStamp: b.Timestamp,
+        //     HighPrice: b.HighPrice,
+        //     OpenPrice: b.OpenPrice,
+        //     LowPrice: b.LowPrice,
+        //     ClosePrice: b.ClosePrice,
+        //     Volume: b.Volume,
+        //     VWAP: b.vw,
+        //   });
+        // }
+
+        // await StockSymbolCollection.insertMany(bars)
+        //   .then((value) => {
+        //     console.log(symbol + ' Saved Successfully');
+        //     //   mongoose.connection.close();
+        //   })
+        //   .catch((error) => {
+        //     console.log(symbol + ' ' + error);
+        //     //   mongoose.connection.close();
+        //   });
+
+        // END - updating stock data
         console.log(symbol);
       }
     });

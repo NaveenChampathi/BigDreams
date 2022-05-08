@@ -9,6 +9,33 @@ A boilerplate/starter project for quickly building RESTful APIs using Node.js, E
 
 By running a single command, you will get a production-ready Node.js app installed and fully configured on your machine. The app comes with many built-in features, such as authentication using JWT, request validation, unit and integration tests, continuous integration, docker support, API documentation, pagination, etc. For more details, check the features list below.
 
+## Populate data
+
+Get latest nasdaq_screener.csv (https://www.nasdaq.com/market-activity/stocks/screener)
+Run
+
+```bash
+node .\src\jobs\nasdaq-stocks.js
+```
+
+Comment out Section 1 and run
+
+```bash
+node .\src\jobs\populate-history.js
+```
+
+Comment out Section 2 and run
+
+```bash
+node .\src\jobs\populate-history.js
+```
+
+Run
+
+```bash
+node .\src\jobs\gap-ups.js
+```
+
 ## Quick Start
 
 To create a project, simply run:

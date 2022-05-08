@@ -8,6 +8,8 @@ const API_SECRET = 'SxyK42v8ziuSjtXiku9AEjKOLBT95C8xeu5GyzSb';
 const { getCollection } = require('../../models/historical-stock-data.model');
 const StockSymbols = require('../../models/stocks.model');
 const GapUps = require('../../models/gap-up-stats.model');
+const MarketOpenGapUps = require('../../models/market-open-stats.model');
+const MultiDayRunners = require('../../models/multi-day-runner.model');
 
 const alpaca = new Alpaca();
 
@@ -25,10 +27,17 @@ const toISOStringLocalDays = (date, days, future = false) => {
   const z = (n) => {
     return (n < 10 ? '0' : '') + n;
   };
-  const dateObj = new Date(
-    new Date(date).setDate(future ? new Date(date).getDate() + days : new Date(date).getDate() - days)
-  );
-  return dateObj.getFullYear() + '-' + z(dateObj.getMonth() + 1) + '-' + z(dateObj.getDate());
+
+  const _date = date.replace(/-/g, '/');
+
+  if (days) {
+    const dateObj = new Date(
+      new Date(_date).setDate(future ? new Date(_date).getDate() + days : new Date(_date).getDate() - days)
+    );
+    return dateObj.getFullYear() + '-' + z(dateObj.getMonth() + 1) + '-' + z(dateObj.getDate());
+  } else {
+    return date;
+  }
 };
 
 router.get('/get-bars/:ticker', async (req, res, next) => {
@@ -65,7 +74,7 @@ router.get('/get-daily-bars/:date/:ticker', async (req, res, next) => {
     const resp = alpaca.getBarsV2(
       req.params.ticker,
       {
-        start: toISOStringLocal(new Date(), 3),
+        start: toISOStringLocal(new Date(req.params.date), 3),
         end: req.params.date,
         timeframe: '1Day',
       },
@@ -97,7 +106,11 @@ router.get('/get-bars/intraday/:numberOfDaysBack/:numberOfDaysFuture/:date/:tick
       },
       alpaca.configuration
     );
-
+    console.log({
+      start: toISOStringLocalDays(req.params.date, parseInt(req.params.numberOfDaysBack)) + 'T04:00:00-04:00',
+      end: toISOStringLocalDays(req.params.date, parseInt(req.params.numberOfDaysFuture), true) + 'T20:00:00-04:00',
+      timeframe: `${req.params.timeframe}Min`,
+    });
     const bars = [];
     for await (let b of resp) {
       b.Timestamp = moment.tz(b.Timestamp, 'America/New_York').format();
@@ -110,29 +123,29 @@ router.get('/get-bars/intraday/:numberOfDaysBack/:numberOfDaysFuture/:date/:tick
   }
 });
 
-router.get('/get-bars/intraday/:date/:ticker/:timeframe/', async (req, res, next) => {
-  try {
-    const resp = alpaca.getBarsV2(
-      req.params.ticker,
-      {
-        start: toISOStringLocalDays(req.params.date, 3) + 'T04:00:00-04:00',
-        end: toISOStringLocalDays(req.params.date, 1, true) + 'T20:00:00-04:00',
-        timeframe: `${req.params.timeframe}Min`,
-      },
-      alpaca.configuration
-    );
+// router.get('/get-bars/intraday/:date/:ticker/:timeframe/', async (req, res, next) => {
+//   try {
+//     const resp = alpaca.getBarsV2(
+//       req.params.ticker,
+//       {
+//         start: toISOStringLocalDays(req.params.date, 3) + 'T04:00:00-04:00',
+//         end: toISOStringLocalDays(req.params.date, 1, true) + 'T20:00:00-04:00',
+//         timeframe: `${req.params.timeframe}Min`,
+//       },
+//       alpaca.configuration
+//     );
 
-    const bars = [];
-    for await (let b of resp) {
-      b.Timestamp = moment.tz(b.Timestamp, 'America/New_York').format();
-      bars.push(b);
-    }
+//     const bars = [];
+//     for await (let b of resp) {
+//       b.Timestamp = moment.tz(b.Timestamp, 'America/New_York').format();
+//       bars.push(b);
+//     }
 
-    res.json(bars);
-  } catch (err) {
-    console.log(err);
-  }
-});
+//     res.json(bars);
+//   } catch (err) {
+//     console.log(err);
+//   }
+// });
 
 router.get('/get-trades/intraday/:date/:ticker', async (req, res, next) => {
   try {
@@ -215,8 +228,45 @@ const getAllGappedTickers = () => {
     }
   };
 };
+const getAllMorningOpenGappedTickers = () => {
+  return async (req, res, next) => {
+    // let _results = [];
+    // const { gapUp, volume } = req.query;
+    try {
+      await MarketOpenGapUps.find({}, async (err, results) => {
+        res.data = { results: results.filter(({ OpenPrice }) => OpenPrice >= 2) };
+        console.log('processingDone');
+        next();
+      });
+    } catch (e) {
+      res.status(500).json({ message: 'Error Occured' });
+    }
+  };
+};
+const getAllMultiDayTickers = () => {
+  return async (req, res, next) => {
+    // let _results = [];
+    // const { gapUp, volume } = req.query;
+    try {
+      await MultiDayRunners.find({}, async (err, results) => {
+        res.data = { results: results.filter(({ OpenPrice }) => OpenPrice >= 3) };
+        console.log('processingDone');
+        next();
+      });
+    } catch (e) {
+      res.status(500).json({ message: 'Error Occured' });
+    }
+  };
+};
 
 router.get('/get-all-gapped-tickers', getAllGappedTickers(), (req, res) => {
+  res.json(res.data);
+});
+router.get('/get-all-morning-open-gapped-tickers', getAllMorningOpenGappedTickers(), (req, res) => {
+  res.json(res.data);
+});
+
+router.get('/get-all-multi-day-tickers', getAllMultiDayTickers(), (req, res) => {
   res.json(res.data);
 });
 

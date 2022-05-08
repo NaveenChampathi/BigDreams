@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const { getCollection } = require('../models/historical-stock-data.model');
-const GapUps = require('../models/gap-up-stats.model');
+const MarketOpenGapUps = require('../models/market-open-stats.model');
 const StockSymbols = require('../models/stocks.model');
 
 const MINIMUM_VOLUME = 2000000;
@@ -12,6 +12,10 @@ const toISOStringLocal = (d, yearsBack) => {
   };
   const year = yearsBack ? d.getFullYear() - yearsBack : d.getFullYear();
   return year + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate());
+};
+
+const openGapup = ({ OpenPrice, HighPrice }) => {
+  return ((HighPrice - OpenPrice) / OpenPrice) * 100;
 };
 
 mongoose
@@ -26,14 +30,14 @@ mongoose
       // console.log(results);
       const db_results = results.map((r) => r.symbol);
       // console.log(db_results);
-      GapUps.deleteMany({});
+      MarketOpenGapUps.deleteMany({});
       for await (let symbol of db_results) {
         const StockSymbolCollection = getCollection(symbol);
         const documents = await StockSymbolCollection.find({}).sort({ TimeStamp: 1 });
 
         const documentsToLoad = documents
           .filter((doc, i) => {
-            return doc.gapUp >= MINIMUM_GAP && doc.Volume >= MINIMUM_VOLUME;
+            return doc.Volume >= MINIMUM_VOLUME && openGapup(doc) >= MINIMUM_GAP;
           })
           .map(({ TimeStamp, HighPrice, OpenPrice, LowPrice, ClosePrice, Volume, VWAP, gapUp, PreviousClose }) => ({
             TimeStamp,
@@ -44,12 +48,13 @@ mongoose
             Volume,
             VWAP,
             gapUp,
+            marketOpenGapup: openGapup({ OpenPrice, HighPrice }),
             PreviousClose,
             Symbol: symbol,
             _id: mongoose.Types.ObjectId(),
           }));
 
-        GapUps.insertMany(documentsToLoad)
+        MarketOpenGapUps.insertMany(documentsToLoad)
           .then(() => {
             console.log(symbol + ' Saved Successfully');
           })

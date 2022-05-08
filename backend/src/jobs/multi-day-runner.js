@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const { getCollection } = require('../models/historical-stock-data.model');
-const GapUps = require('../models/gap-up-stats.model');
+const MultiDayRunners = require('../models/multi-day-runner.model');
 const StockSymbols = require('../models/stocks.model');
 
 const MINIMUM_VOLUME = 2000000;
@@ -26,14 +26,19 @@ mongoose
       // console.log(results);
       const db_results = results.map((r) => r.symbol);
       // console.log(db_results);
-      GapUps.deleteMany({});
       for await (let symbol of db_results) {
         const StockSymbolCollection = getCollection(symbol);
         const documents = await StockSymbolCollection.find({}).sort({ TimeStamp: 1 });
-
         const documentsToLoad = documents
           .filter((doc, i) => {
-            return doc.gapUp >= MINIMUM_GAP && doc.Volume >= MINIMUM_VOLUME;
+            let gapCriteriaMet = doc.gapUp >= MINIMUM_GAP && doc.Volume >= MINIMUM_VOLUME;
+            let multiDayCriteriaMet = false;
+            if (documents[i + 1] && documents[i + 2]) {
+              multiDayCriteriaMet =
+                documents[i + 1].ClosePrice > doc.ClosePrice && documents[i + 2].ClosePrice > documents[i + 1].ClosePrice;
+            }
+
+            return gapCriteriaMet && multiDayCriteriaMet;
           })
           .map(({ TimeStamp, HighPrice, OpenPrice, LowPrice, ClosePrice, Volume, VWAP, gapUp, PreviousClose }) => ({
             TimeStamp,
@@ -48,8 +53,7 @@ mongoose
             Symbol: symbol,
             _id: mongoose.Types.ObjectId(),
           }));
-
-        GapUps.insertMany(documentsToLoad)
+        MultiDayRunners.insertMany(documentsToLoad)
           .then(() => {
             console.log(symbol + ' Saved Successfully');
           })
