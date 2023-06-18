@@ -30,6 +30,15 @@ Comment out Section 2 and run
 node .\src\jobs\populate-history.js
 ```
 
+Update date in halt-history.js
+
+Run
+
+```bash
+node .\src\jobs\halt-history.js
+node .\src\jobs\gap-and-crap-halts.js
+```
+
 Run
 
 ```bash

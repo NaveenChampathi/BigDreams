@@ -26,6 +26,12 @@ const notifyLastTrade = (data) => {
   }
 };
 
+const notifyTrade = (data) => {
+  if (_socket) {
+    _socket.emit('Trade', data);
+  }
+};
+
 const notifyTickerFundamentals = (data) => {
   if (_socket) {
     _socket.emit('TickerFundamentals', data);
@@ -69,4 +75,5 @@ module.exports = {
   notifyTickerFundamentals,
   notifyGainers,
   notifyHalts,
+  notifyTrade,
 };

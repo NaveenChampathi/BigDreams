@@ -29,7 +29,7 @@ mongoose
       GapUps.deleteMany({});
       for await (let symbol of db_results) {
         const StockSymbolCollection = getCollection(symbol);
-        const documents = await StockSymbolCollection.find({}).sort({ TimeStamp: 1 });
+        const documents = await StockSymbolCollection.find({}).sort({ TimeStamp: -1 });
 
         const documentsToLoad = documents
           .filter((doc, i) => {

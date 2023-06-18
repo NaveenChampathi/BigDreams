@@ -13,7 +13,8 @@ const stockHistoryModel = new mongoose.Schema(
     VWAP: Number,
     gapUp: Number,
     PreviousClose: Number,
-    
+    validGapupType1: Boolean,
+    validGapupType2: Boolean,
   },
   { collection: 'data' }
 );

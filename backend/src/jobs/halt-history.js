@@ -128,8 +128,8 @@ const getDatesToQuery = (dateUntil) => {
 };
 
 const fetchHaltsJob = async () => {
-  const dates = getDatesToQuery('20210920');
-  // const dates = ['20220305']; - Tickers till date
+  const dates = getDatesToQuery('20220621');
+  // const dates = ['20221225']; - Tickers till date
 
   // console.log(dates);
 
@@ -143,10 +143,12 @@ const fetchHaltsJob = async () => {
       for await (let date of dates) {
         try {
           const res = await fetchHaltsPuppeteer(date);
-          const haltsData = htmlToJson(res.result).map((r) => ({
-            _id: mongoose.Types.ObjectId(),
-            ...r,
-          }));
+          const haltsData = htmlToJson(res.result)
+            .map((r) => ({
+              _id: mongoose.Types.ObjectId(),
+              ...r,
+            }))
+            .filter(({ reasonCode }) => reasonCode === 'LUDP' || reasonCode === 'M');
 
           // Store in mongo
           await HaltHistory.insertMany(haltsData)

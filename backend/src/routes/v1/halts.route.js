@@ -82,7 +82,7 @@ const getAllHaltedCrap = () => {
     const results = {};
 
     try {
-      results.results = await HaltHistory.find({ reasonCode: 'LUDP', validHaltResumeEntry: true }).exec();
+      results.results = await HaltHistory.find({ reasonCode: 'LUDP' }).exec();
       res.data = results;
       next();
     } catch (e) {

@@ -2,14 +2,12 @@ const express = require('express');
 const axios = require('axios');
 const Alpaca = require('@alpacahq/alpaca-trade-api');
 const mongoose = require('mongoose');
-const { alertClient, alertClientHOD, notifyLastTrade } = require('../../services/notification.service');
+const { alertClient, alertClientHOD, notifyLastTrade, notifyTrade } = require('../../services/notification.service');
 
 const SymbolHOD = require('../../models/hod-scanner.model');
 const { registerGainersPollingId } = require('@utils/pollingHelper');
 const { toISOStringLocal } = require('@utils/index');
 
-// const API_KEY = 'AKUZGQ4LP0JFTH8MLI8G';
-// const API_SECRET = 'SxyK42v8ziuSjtXiku9AEjKOLBT95C8xeu5GyzSb';
 let lastPricesFromBars = {};
 const lastTradesForSymbol = {};
 const intradayStatsForTickers = {};
@@ -47,59 +45,60 @@ class DataStream {
       console.log('Connected');
       dataStreamConnectionsActive++;
       dataStreamConnectionPromiseResolve();
-      // this.alpaca.getWatchlist(watchlistId).then((res) => {
-      //   let tickers = [];
-      //   if (res.assets) {
-      //     tickers = res.assets.map((r) => r.symbol);
-      //   }
+      this.alpaca.getWatchlist(watchlistId).then((res) => {
+        let tickers = [];
+        if (res.assets) {
+          tickers = res.assets.map((r) => r.symbol);
+        }
 
-      //   if (tickers.length) {
-      //     // socket.subscribeForQuotes(tickers);
-      //     socket.subscribeForBars(tickers);
-      //     socket.subscribeForTrades(tickers);
-      //   }
-      // });
+        if (tickers.length) {
+          // socket.subscribeForQuotes(tickers);
+          // socket.subscribeForBars(tickers);
+          console.log(tickers);
+          socket.subscribeForTrades(tickers);
+        }
+      });
 
-      axios
-        .get(
-          'https://securitiesapi.webullfintech.com/api/securities/market/v5/card/stockActivityPc.advanced/list?regionId=6&userRegionId=1&hasNum=0&pageSize=100'
-        )
-        .then((response) => {
-          const { data } = response;
-          const tickers = data.filter((d) => d.volume > 100000 && d.symbol.length < 5);
-          currentTickersBeingWatched = tickers.map((t) => t.symbol);
-          socket.subscribeForBars(currentTickersBeingWatched);
-          socket.subscribeForTrades(currentTickersBeingWatched);
-          getSnapshots(currentTickersBeingWatched);
-        })
-        .catch((err) => {
-          console.log(err);
-        });
+      // axios
+      //   .get(
+      //     'https://securitiesapi.webullfintech.com/api/securities/market/v5/card/stockActivityPc.advanced/list?regionId=6&userRegionId=1&hasNum=0&pageSize=100'
+      //   )
+      //   .then((response) => {
+      //     const { data } = response;
+      //     const tickers = data.filter((d) => d.volume > 100000 && d.symbol.length < 5);
+      //     currentTickersBeingWatched = tickers.map((t) => t.symbol);
+      //     socket.subscribeForBars(currentTickersBeingWatched);
+      //     socket.subscribeForTrades(currentTickersBeingWatched);
+      //     getSnapshots(currentTickersBeingWatched);
+      //   })
+      //   .catch((err) => {
+      //     console.log(err);
+      //   });
 
-      const _intervalId = setInterval(() => {
-        axios
-          .get(
-            'https://securitiesapi.webullfintech.com/api/securities/market/v5/card/stockActivityPc.advanced/list?regionId=6&userRegionId=1&hasNum=0&pageSize=100'
-          )
-          .then((response) => {
-            const { data } = response;
-            const tickers = data.filter((d) => d.volume > 100000 && d.symbol.length < 5).map((t) => t.symbol);
-            const additionalTickers = tickers.filter((t) => currentTickersBeingWatched.indexOf(t) < 0);
+      // const _intervalId = setInterval(() => {
+      //   axios
+      //     .get(
+      //       'https://securitiesapi.webullfintech.com/api/securities/market/v5/card/stockActivityPc.advanced/list?regionId=6&userRegionId=1&hasNum=0&pageSize=100'
+      //     )
+      //     .then((response) => {
+      //       const { data } = response;
+      //       const tickers = data.filter((d) => d.volume > 100000 && d.symbol.length < 5).map((t) => t.symbol);
+      //       const additionalTickers = tickers.filter((t) => currentTickersBeingWatched.indexOf(t) < 0);
 
-            if (additionalTickers.length) {
-              socket.subscribeForBars(additionalTickers);
-              socket.subscribeForTrades(additionalTickers);
-              getSnapshots(additionalTickers);
-              console.log(additionalTickers);
-            }
-            currentTickersBeingWatched = [...currentTickersBeingWatched, ...additionalTickers];
-            console.log(currentTickersBeingWatched);
-          })
-          .catch((err) => {
-            console.log(err);
-          });
-      }, 30000);
-      registerGainersPollingId(_intervalId);
+      //       if (additionalTickers.length) {
+      //         socket.subscribeForBars(additionalTickers);
+      //         socket.subscribeForTrades(additionalTickers);
+      //         getSnapshots(additionalTickers);
+      //         console.log(additionalTickers);
+      //       }
+      //       currentTickersBeingWatched = [...currentTickersBeingWatched, ...additionalTickers];
+      //       console.log(currentTickersBeingWatched);
+      //     })
+      //     .catch((err) => {
+      //       console.log(err);
+      //     });
+      // }, 30000);
+      // registerGainersPollingId(_intervalId);
     });
 
     socket.onError((err) => {
@@ -108,6 +107,7 @@ class DataStream {
 
     socket.onStockTrade((trade) => {
       // console.log(trade);
+      notifyTrade(trade);
       // if(lastTradesForSymbol[trade.Symbol]) {
       //   const increased = trade.Price > lastTradesForSymbol[trade.Symbol].Price;
       //   lastTradesForSymbol[trade.Symbol] = {...trade, increased}
@@ -260,7 +260,11 @@ router.get('/connect/:id', (req, res, next) => {
 });
 
 router.get('/disconnect', (req, res, next) => {
-  stream.alpaca.data_stream_v2.disconnect();
+  try {
+    stream.alpaca.data_stream_v2.disconnect();
+  } catch (err) {
+    console.log(err);
+  }
   lastPricesFromBars = {};
   res.json({ success: true });
 });

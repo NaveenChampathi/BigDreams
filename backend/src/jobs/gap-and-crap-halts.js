@@ -6,11 +6,11 @@ const HaltHistory = require('../models/halt-history.model');
 const alpaca = new Alpaca();
 
 const constructDate = (date) => {
-  // const dateParams = date.split('/');
+  const dateParams = date.split('/');
 
   // return `${dateParams[2]}-${dateParams[0]}-${dateParams[1]}T04:00:00Z`;
-  // return `${dateParams[2]}-${dateParams[0]}-${dateParams[1]}`;
-  return date.split('T')[0];
+  return `${dateParams[2]}-${dateParams[0]}-${dateParams[1]}`;
+  // return date.split('T')[0];
 };
 
 const getIntradayStats = (_bars) => {

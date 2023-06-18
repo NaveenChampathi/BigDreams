@@ -154,7 +154,29 @@ router.get('/get-trades/intraday/:date/:ticker', async (req, res, next) => {
       {
         start: req.params.date + 'T09:30:00-04:00',
         end: req.params.date + 'T20:00:00-04:00',
-        limit: 10000,
+      },
+      alpaca.configuration
+    );
+
+    const trades = [];
+    for await (let b of resp) {
+      b.Timestamp = moment.tz(b.Timestamp, 'America/New_York').format();
+      trades.push(b);
+    }
+
+    res.json(trades);
+  } catch (err) {
+    console.log(err);
+  }
+});
+
+router.get('/get-trades/:start/:end/:ticker', async (req, res, next) => {
+  try {
+    const resp = alpaca.getTradesV2(
+      req.params.ticker,
+      {
+        start: req.params.start,
+        end: req.params.end,
       },
       alpaca.configuration
     );
@@ -215,6 +237,10 @@ router.get('/technicals/:ticker', async (req, res, next) => {
 
 const getAllGappedTickers = () => {
   return async (req, res, next) => {
+    const page = parseInt(req.query.page);
+    const limit = parseInt(req.query.limit);
+    const skipIndex = (page - 1) * limit;
+    const results = {};
     // let _results = [];
     // const { gapUp, volume } = req.query;
     try {
@@ -222,7 +248,11 @@ const getAllGappedTickers = () => {
         res.data = { results: results.filter(({ OpenPrice }) => OpenPrice >= 3) };
         console.log('processingDone');
         next();
-      });
+      })
+        .sort({ TimeStamp: -1 })
+        .limit(limit)
+        .skip(skipIndex)
+        .exec();
     } catch (e) {
       res.status(500).json({ message: 'Error Occured' });
     }
@@ -268,6 +298,45 @@ router.get('/get-all-morning-open-gapped-tickers', getAllMorningOpenGappedTicker
 
 router.get('/get-all-multi-day-tickers', getAllMultiDayTickers(), (req, res) => {
   res.json(res.data);
+});
+
+router.post('/mark-ticker', async (req, res) => {
+  const { id, type, value } = req.body;
+
+  try {
+    await GapUps.updateOne({ _id: id }, { $set: { [type]: value } }, (e) => {
+      if (e) {
+        res.json(e);
+        return;
+      }
+
+      res.json({ success: true });
+    });
+  } catch (e) {
+    res.status(500).json({ message: 'Error Occured' });
+  }
+});
+
+// News API
+router.get('/news/:date/:ticker/', async (req, res, next) => {
+  try {
+    const news = await alpaca.getNews(
+      {
+        symbols: [req.params.ticker],
+        start: toISOStringLocalDays(req.params.date, 4) + 'T04:00:00-04:00',
+        end: toISOStringLocalDays(req.params.date, 4, true) + 'T20:00:00-04:00',
+        exclude_contentless: true,
+        limit: '50',
+      },
+      alpaca.configuration
+    );
+
+    res.json(news);
+  } catch (err) {
+    console.log(err);
+    res.json([]);
+    des;
+  }
 });
 
 module.exports = router;

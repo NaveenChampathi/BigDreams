@@ -12,6 +12,8 @@ const __Model = new mongoose.Schema({
   gapUp: Number,
   PreviousClose: Number,
   Symbol: String,
+  validGapupType1: Boolean,
+  validGapupType2: Boolean,
 });
 
 const GapUps = mongoose.model('gapups_gte_30', __Model);
